@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TizCad Viewer</title>
+    <script src="./coi-serviceworker.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: monospace; background: #111116; color: #fff; overflow: hidden; }
+        .viewport-container { width: 100vw; height: 100vh; position: relative; }
+        
+        #canvas_id { width: 100%; height: 100%; display: block; background: #14141a; }
+        
+        .btn-open-file {
+            background: #2a2a35; color: #fff; border: 1px solid #444;
+            padding: 2px 10px; border-radius: 4px; cursor: pointer;
+            font-family: monospace; font-size: 11px; transition: all 0.2s ease;
+            margin-left: 5px;
+        }
+        .btn-open-file:hover { background: #0e639c; border-color: #1177bb; }
+        
+        .bottom-metrics {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 10;
+            background: rgba(15, 15, 20, 0.8); backdrop-filter: blur(5px);
+            padding: 6px 16px; border-radius: 20px; border: 1px solid #222;
+            font-size: 11px; color: #888; display: flex; gap: 15px; align-items: center;
+            white-space: nowrap;
+        }
+        .metric-val { color: #569cd6; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="viewport-container">
+        <input type="file" id="tuff-file-picker" accept=".step,.stl,.obj,.ply,.tuff" style="display: none;" onchange="handleFileSelect(this)"/>
+
+        <canvas id="canvas_id"></canvas>
+
+        <div class="bottom-metrics">
+            <a href="https://github.com/TizCad" target="_blank" class="home-link">
+                <span class="tech-tag">Home</span>
+            </a>
+            <div style="border-left: 1px solid #333; padding-left: 15px; display: flex; align-items: center;">
+                <button class="btn-open-file" onclick="document.getElementById('tuff-file-picker').click()">📂 Import (STEP/STL/OBJ/PLY)</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        
+        import init from './static/js/tizcad_viewer.js';
+
+        let wasmInstance = null;
+
+        async function bootEngine() {
+            const canvas = document.getElementById('canvas_id');
+            if (!canvas) return;
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+
+            try {
+                wasmInstance = await init();
+                console.log("🟢 3D View Engine успешно инициализирован в WebGL2!");
+                
+                const wasmModule = await import('./static/js/tizcad_viewer.js');
+                if (typeof wasmModule.start_viewer === 'function') {
+                    wasmModule.start_viewer();
+                    console.log("🚀 Eframe WebRunner запущен на HTML5 Canvas.");
+                }
+            } catch (err) {
+                console.error("🔴 Критическая ошибка инициализации графического ядра:", err);
+            }
+        }
+
+        window.handleFileSelect = function(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            console.log(`⏳ [Байты] Загрузка файла "${file.name}" в ОЗУ...`);
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                const fileBytes = new Uint8Array(arrayBuffer);
+
+                try {
+                    const wasmModule = await import('./static/js/tizcad_viewer.js');
+                    let success = false;
+                    
+                    console.log(`🧬 Передача ДАННЫХ в WASM-парсер для формата .${ext}...`);
+
+                    if (ext === 'tuff') {
+                        success = wasmModule.load_tuff_from_js(fileBytes); 
+                    } else if (ext === 'obj') {
+                        success = wasmModule.load_obj_from_js(fileBytes); 
+                    } else if (ext === 'stl') {
+                        success = wasmModule.load_stl_from_js(fileBytes);
+                    } else if (ext === 'ply') {
+                        success = wasmModule.load_ply_from_js(fileBytes);
+                    } else if (ext === 'step' || ext === 'stp') {
+                        success = wasmModule.load_step_from_js(fileBytes);
+                    } else {
+                        console.warn(`⚠️ Формат .${ext} не поддерживается ядром.`);
+                        return;
+                    }
+
+                    if (success) {
+                        console.log(`🎉 УСПЕХ: Топология .${ext} успешно десериализована!`);
+                    } else {
+                        console.error(`🔴 ОТКЛОНЕНО: Ядро вернуло false при сборке .${ext}. Проверьте парсер.`);
+                    }
+
+                } catch (err) {
+                    console.error("🔴 Критическая ошибка передачи данных в WASM:", err);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file); 
+        };
+
+        window.triggerTestRender = async function(target) {
+            if (!target) return;
+            console.log(`🎬 Отправка команды на триггер встроенного теста: ${target}`);
+            
+            try {
+                const wasmModule = await import('./static/js/tizcad_viewer.js');
+                if (typeof wasmModule.trigger_core_render === 'function') {
+                    const ok = wasmModule.trigger_core_render(target);
+                    console.log(`Статус отрисовки теста [${target}]:`, ok);
+                } else {
+                    console.warn("⚠️ Функция trigger_core_render не найдена в WASM-модуле.");
+                }
+            } catch (err) {
+                console.error("🔴 Ошибка вызова триггера рендеринга:", err);
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            bootEngine();
+        });
+    </script>
+</body>
+</html>
