@@ -1,32 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TizCad Viewer</title>
     <script src="./coi-serviceworker.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: monospace; background: #111116; color: #fff; overflow: hidden; }
-        .viewport-container { width: 100vw; height: 100vh; position: relative; }
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            /* Фиксируем окно поверх выезжающих шторок мобильного браузера */
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            overscroll-behavior: none;
+            font-family: monospace;
+            background: #111116;
+            color: #fff;
+        }
+
+        .viewport-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            /* 100dvh автоматически подстраивается под адресную строку на iOS и Android */
+            height: 100dvh;
+            overflow: hidden;
+        }
         
-        #canvas_id { width: 100%; height: 100%; display: block; background: #14141a; }
+        /* Сохраняем оригинальный ID холста вашего вьювера */
+        #canvas_id {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+            background: #14141a;
+            /* Передаем касания пальцев напрямую в 3D-сцену без скролла страницы */
+            touch-action: none;
+            user-select: none;
+        }
+
+        .home-link {
+            text-decoration: none;
+            color: #4ec9b0;
+            font-weight: bold;
+            padding: 4px 6px;
+        }
+        .home-link:hover {
+            text-decoration: underline;
+        }
         
         .btn-open-file {
-            background: #2a2a35; color: #fff; border: 1px solid #444;
-            padding: 2px 10px; border-radius: 4px; cursor: pointer;
-            font-family: monospace; font-size: 11px; transition: all 0.2s ease;
-            margin-left: 5px;
-        }
-        .btn-open-file:hover { background: #0e639c; border-color: #1177bb; }
-        
-        .bottom-metrics {
-            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 10;
-            background: rgba(15, 15, 20, 0.8); backdrop-filter: blur(5px);
-            padding: 6px 16px; border-radius: 20px; border: 1px solid #222;
-            font-size: 11px; color: #888; display: flex; gap: 15px; align-items: center;
+            background: #2a2a35;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 11px;
+            transition: all 0.2s ease;
             white-space: nowrap;
         }
-        .metric-val { color: #569cd6; font-weight: bold; }
+        .btn-open-file:hover, .btn-open-file:active {
+            background: #0e639c;
+            border-color: #1177bb;
+        }
+        
+        .bottom-metrics {
+            position: fixed;
+            /* Учитываем безопасный отступ снизу на iPhone и Android */
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 15px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: rgba(15, 15, 20, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #2d2d38;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            font-size: 11px;
+            color: #888;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            max-width: calc(100vw - 20px);
+        }
+
+        .metric-val {
+            color: #569cd6;
+            font-weight: bold;
+        }
+
+        /* Адаптация для экранов смартфонов */
+        @media (max-width: 600px) {
+            .bottom-metrics {
+                bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+                padding: 6px 12px;
+                gap: 8px;
+                border-radius: 14px;
+            }
+            .btn-open-file {
+                padding: 6px 10px;
+                font-size: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -40,11 +127,14 @@
             <a href="https://github.com/TizCad" target="_blank" class="home-link">
                 <span class="tech-tag">Home</span>
             </a>
-            <div style="border-left: 1px solid #333; padding-left: 15px; display: flex; align-items: center;">
-                <button class="btn-open-file" onclick="document.getElementById('tuff-file-picker').click()">📂 Import (STEP/STL/OBJ/PLY)</button>
+            <div style="border-left: 1px solid #333; padding-left: 12px; display: flex; align-items: center;">
+                <button class="btn-open-file" onclick="document.getElementById('tuff-file-picker').click()">
+                    📂 Import (STEP/STL/OBJ/PLY)
+                </button>
             </div>
         </div>
     </div>
+
 
     <script type="module">
         
